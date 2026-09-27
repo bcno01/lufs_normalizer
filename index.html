@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>LUFS Normalizer</title>
+<meta name="description" content="音声ファイルのLUFS/LRAを計測し、目標ラウドネスに合わせてノーマライズしたWAVを書き出すツール" />
+<meta name="theme-color" content="#0a0e16" />
+<link rel="manifest" href="manifest.webmanifest" />
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml" />
+<link rel="apple-touch-icon" href="icons/icon-192.png" />
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+<header class="app-header">
+  <div class="app-header-row">
+    <div>
+      <h1>LUFS Normalizer</h1>
+      <p class="subtitle">音声ファイルのIntegrated LUFS / LRAを計測し、目標ラウドネスとの差分をノーマライズしてWAVで書き出します。</p>
+    </div>
+    <button type="button" id="theme-toggle" class="theme-toggle" aria-label="テーマ切替" title="ダーク/ライト切替">🌙</button>
+  </div>
+</header>
+
+<main>
+  <section class="disclaimer">
+    <strong>注意：</strong>
+    ITU-R BS.1770-4準拠のKウェイティング+ゲーティングでIntegrated LUFSを、EBU Tech 3342準拠でLRAを計測します
+    (同名のJUCE製VSTプラグイン版と同じ計測ロジック)。ファイルはどこにもアップロードされず、
+    すべての処理は手元のブラウザ内で完結します。書き出しは常に16bit PCM WAVになります(元の形式は問いません)。
+    詳しくは <a href="SPEC.md" target="_blank" rel="noopener">SPEC.md</a> を参照してください。
+  </section>
+
+  <!-- 1. ドロップ画面 -->
+  <section id="drop-section" class="view">
+    <div id="drop-zone" class="drop-zone">
+      <div class="drop-zone-icon">⬆</div>
+      <p class="drop-zone-title">ここに音声ファイルをドロップ！</p>
+      <p class="drop-zone-or">または</p>
+      <button type="button" id="browse-button" class="browse-button">ファイルを選択</button>
+      <input type="file" id="file-input" accept="audio/*" hidden />
+    </div>
+  </section>
+
+  <!-- 2. 解析中画面 -->
+  <section id="analyze-section" class="view hidden">
+    <div class="progress-card">
+      <div class="progress-card-head">
+        <span id="analyze-filename"></span>
+        <span class="progress-percent" id="analyze-percent">0%</span>
+      </div>
+      <div class="progress-bar"><div class="progress-bar-fill" id="analyze-bar"></div></div>
+      <p class="progress-detail"><span id="analyze-label">解析中…</span></p>
+    </div>
+  </section>
+
+  <!-- 3. 計測結果＋ノーマライズ画面 -->
+  <section id="app-section" class="view hidden">
+    <div id="file-info" class="file-info"></div>
+
+    <div class="meter-panel">
+      <div class="meter-box">
+        <span class="meter-label">INTEGRATED</span>
+        <span class="meter-value" id="integrated-value">--</span>
+        <span class="meter-unit">LUFS</span>
+      </div>
+      <div class="meter-box">
+        <span class="meter-label">LRA</span>
+        <span class="meter-value" id="lra-value">--</span>
+        <span class="meter-unit">LU</span>
+      </div>
+    </div>
+
+    <div class="target-panel">
+      <h2>ノーマライズ目標</h2>
+      <div id="target-list" class="target-list"></div>
+      <div id="custom-target-row" class="custom-target-row hidden">
+        <input type="range" id="custom-target-range" min="-36" max="-6" step="0.1" />
+        <input type="number" id="custom-target-number" min="-36" max="-6" step="0.1" />
+        <span class="custom-target-unit">LUFS</span>
+      </div>
+    </div>
+
+    <div class="gain-panel">
+      <div class="gain-readout">
+        <span class="gain-label">GAIN</span>
+        <span class="gain-value" id="gain-value">--</span>
+        <span class="gain-unit">dB</span>
+      </div>
+      <p id="clip-warning" class="clip-warning hidden">
+        ⚠ このゲインを適用するとサンプルピークが0dBFSを超えクリップする可能性があります。
+      </p>
+    </div>
+
+    <div class="ab-panel">
+      <div class="ab-switch" role="group" aria-label="原音/ノーマライズ後の切替">
+        <button type="button" id="ab-original" class="ab-button active">ORIGINAL</button>
+        <button type="button" id="ab-normalized" class="ab-button">NORMALIZED</button>
+      </div>
+      <button type="button" id="play-button" class="play-button">▶ 再生</button>
+    </div>
+
+    <button type="button" id="export-button" class="export-button">⬇ ノーマライズ後をWAVで書き出す</button>
+
+    <button type="button" id="reset-button" class="reset-button">別のファイルを選ぶ</button>
+  </section>
+</main>
+
+<footer class="app-footer">
+  <p>すべてローカル処理・オフライン対応PWA。<span id="install-hint"></span></p>
+</footer>
+
+<script type="module" src="src/main.js"></script>
+</body>
+</html>
