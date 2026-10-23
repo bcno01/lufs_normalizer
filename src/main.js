@@ -123,9 +123,11 @@ async function handleFile(file) {
 
 function renderResult(file) {
   fileInfoEl.innerHTML = `
-    <span class="name">${file.name}</span>
+    <span class="name"></span>
     <span class="meta">${formatDuration(audioBuffer.duration)} ・ ${audioBuffer.sampleRate} Hz ・ ${audioBuffer.numberOfChannels}ch ・ ${formatBytes(file.size)}</span>
   `;
+  // ファイル名は利用者が決めた文字列なので、HTMLとして解釈されないようtextContentで入れる
+  fileInfoEl.querySelector(".name").textContent = file.name;
 
   integratedValueEl.textContent = analysis.integratedLufs <= -99 ? "--" : analysis.integratedLufs.toFixed(1);
   lraValueEl.textContent = analysis.loudnessRangeLu.toFixed(1);

@@ -1,4 +1,4 @@
-const CACHE_VERSION = "v1";
+const CACHE_VERSION = "v2";
 const SHELL_CACHE = `lufs-normalizer-shell-${CACHE_VERSION}`;
 
 const SHELL_FILES = [
