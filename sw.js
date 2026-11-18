@@ -1,4 +1,4 @@
-const CACHE_VERSION = "v2";
+const CACHE_VERSION = "v5";
 const SHELL_CACHE = `lufs-normalizer-shell-${CACHE_VERSION}`;
 
 const SHELL_FILES = [
@@ -11,6 +11,9 @@ const SHELL_FILES = [
   "./src/presets.js",
   "./src/wavEncoder.js",
   "./src/player.js",
+  "./src/ruler.js",
+  "./fonts/BarlowCondensed-600.woff2",
+  "./fonts/BarlowCondensed-700.woff2",
   "./icons/icon.svg",
   "./icons/icon-192.png",
   "./icons/icon-512.png",
@@ -18,7 +21,11 @@ const SHELL_FILES = [
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
-    caches.open(SHELL_CACHE).then((cache) => cache.addAll(SHELL_FILES)).then(() => self.skipWaiting())
+    // HTTPキャッシュ(GitHub Pagesは約10分)に残った古いファイルを拾わないよう、毎回サーバーから取り直す
+    caches
+      .open(SHELL_CACHE)
+      .then((cache) => Promise.all(SHELL_FILES.map((file) => cache.add(new Request(file, { cache: "reload" })))))
+      .then(() => self.skipWaiting())
   );
 });
 

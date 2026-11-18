@@ -1,6 +1,6 @@
 // ノーマライズ目標プリセット。VST版(PluginProcessor.cpp)と同じ値。
 export const TARGET_PRESETS = [
-  { id: "spotify-youtube", label: "Spotify / YouTube", lufs: -14 },
+  { id: "spotify-youtube", label: "Spotify / YouTube", short: "Spotify", lufs: -14 },
   { id: "apple-music", label: "Apple Music", lufs: -16 },
   { id: "ebu-r128", label: "EBU R128", lufs: -23 },
   { id: "custom", label: "カスタム", lufs: null },

@@ -9,105 +9,136 @@
 <link rel="manifest" href="manifest.webmanifest" />
 <link rel="icon" href="icons/icon.svg" type="image/svg+xml" />
 <link rel="apple-touch-icon" href="icons/icon-192.png" />
+<link rel="preload" href="fonts/BarlowCondensed-600.woff2" as="font" type="font/woff2" crossorigin />
 <link rel="stylesheet" href="css/style.css" />
+<script>
+  // 初回描画前にテーマを確定させ、ライト設定の人に暗い画面が一瞬出るのを防ぐ
+  try {
+    var t = localStorage.getItem("lufsNormalizerTheme");
+    if (t !== "dark" && t !== "light") t = matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
+    document.documentElement.dataset.theme = t;
+  } catch (e) {}
+</script>
 </head>
 <body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+  <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="M7 4.5v15l12-7.5z" fill="currentColor"/></symbol>
+  <symbol id="i-stop" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="1.5" fill="currentColor"/></symbol>
+  <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 3v12m0 0l-5-5m5 5l5-5M4 20h16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 16V4m0 0L7 9m5-5l5 5M4 20h16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 3.5l9.5 16.5h-19z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M12 10v4.5M12 17.2v.1" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></symbol>
+</svg>
+
 <header class="app-header">
   <div class="app-header-row">
-    <div>
+    <div class="brand">
+      <svg class="brand-mark" viewBox="0 0 40 32" aria-hidden="true">
+        <rect x="0" y="16" width="6" height="16" rx="1.5"/>
+        <rect x="9" y="10" width="6" height="22" rx="1.5"/>
+        <rect x="18" y="0" width="6" height="32" rx="1.5" class="peak"/>
+        <rect x="27" y="8" width="6" height="24" rx="1.5"/>
+        <rect x="36" y="14" width="4" height="18" rx="1.5"/>
+      </svg>
       <h1>LUFS Normalizer</h1>
-      <p class="subtitle">音声ファイルのIntegrated LUFS / LRAを計測し、目標ラウドネスとの差分をノーマライズしてWAVで書き出します。</p>
+      <p class="subtitle">ラウドネスを測って、配信先の基準に合わせる</p>
     </div>
-    <button type="button" id="theme-toggle" class="theme-toggle" aria-label="テーマ切替" title="ダーク/ライト切替">🌙</button>
+    <button type="button" id="theme-toggle" class="icon-button" aria-label="テーマを切り替える" title="ダーク / ライト切り替え">
+      <svg class="icon icon-sun" aria-hidden="true"><use href="#i-sun"/></svg>
+      <svg class="icon icon-moon" aria-hidden="true"><use href="#i-moon"/></svg>
+    </button>
   </div>
 </header>
 
 <main>
-  <section class="disclaimer">
-    <strong>注意：</strong>
-    ITU-R BS.1770-4準拠のKウェイティング+ゲーティングでIntegrated LUFSを、EBU Tech 3342準拠でLRAを計測します
-    (同名のJUCE製VSTプラグイン版と同じ計測ロジック)。ファイルはどこにもアップロードされず、
-    すべての処理は手元のブラウザ内で完結します。書き出しは常に16bit PCM WAVになります(元の形式は問いません)。
-    詳しくは <a href="SPEC.md" target="_blank" rel="noopener">SPEC.md</a> を参照してください。
-  </section>
+  <!-- ステージ: ドロップ・解析中・結果表示のすべてがここで切り替わる -->
+  <section class="stage" id="stage" data-state="idle">
+    <div id="stage-ruler"></div>
 
-  <!-- 1. ドロップ画面 -->
-  <section id="drop-section" class="view">
-    <div id="drop-zone" class="drop-zone">
-      <div class="drop-zone-icon">⬆</div>
-      <p class="drop-zone-title">ここに音声ファイルをドロップ！</p>
-      <p class="drop-zone-or">または</p>
-      <button type="button" id="browse-button" class="browse-button">ファイルを選択</button>
+    <div class="stage-top">
+      <div class="file-chip">
+        <div id="file-info" class="file-info"></div>
+        <button type="button" id="reset-button" class="chip-button">別のファイルを選ぶ</button>
+      </div>
+      <div class="lra">
+        <span class="lra-label">LRA</span>
+        <span class="lra-value" id="lra-value">--</span>
+        <span class="lra-unit">LU</span>
+      </div>
+    </div>
+
+    <div class="stage-prompt" id="drop-zone">
+      <h2 class="prompt-title">音声ファイルを<wbr>ここにドロップ</h2>
+      <p class="prompt-sub">mp3 / wav / m4a など。ファイルは端末の外に出ません。</p>
+      <button type="button" id="browse-button" class="button button-primary">
+        <svg class="icon" aria-hidden="true"><use href="#i-upload"/></svg>
+        ファイルを選ぶ
+      </button>
       <input type="file" id="file-input" accept="audio/*" hidden />
     </div>
-  </section>
 
-  <!-- 2. 解析中画面 -->
-  <section id="analyze-section" class="view hidden">
-    <div class="progress-card">
-      <div class="progress-card-head">
-        <span id="analyze-filename"></span>
-        <span class="progress-percent" id="analyze-percent">0%</span>
-      </div>
+    <div class="stage-progress" role="status" aria-live="polite">
+      <div class="progress-figure"><span class="progress-number" id="analyze-percent">0</span><span class="progress-sign">%</span></div>
+      <p class="progress-name" id="analyze-filename"></p>
+      <p class="progress-detail" id="analyze-label">解析中…</p>
       <div class="progress-bar"><div class="progress-bar-fill" id="analyze-bar"></div></div>
-      <p class="progress-detail"><span id="analyze-label">解析中…</span></p>
     </div>
+
+    <p class="stage-silent hidden" id="silent-note">無音に近く、ラウドネスを計測できませんでした。</p>
   </section>
 
-  <!-- 3. 計測結果＋ノーマライズ画面 -->
-  <section id="app-section" class="view hidden">
-    <div id="file-info" class="file-info"></div>
+  <!-- コントロールデッキ: 結果が出たあとだけ表示 -->
+  <section class="deck hidden" id="app-section">
+    <div class="deck-grid">
+      <section class="deck-cell" aria-labelledby="target-heading">
+        <h2 id="target-heading">目標ラウドネス</h2>
+        <div id="target-list" class="segmented target-list" role="group" aria-labelledby="target-heading"></div>
+        <div id="custom-target-row" class="custom-target-row hidden">
+          <input type="range" id="custom-target-range" min="-36" max="-6" step="0.1" aria-label="目標ラウドネス(スライダー)" />
+          <input type="number" id="custom-target-number" min="-36" max="-6" step="0.1" aria-label="目標ラウドネス(数値)" />
+          <span class="custom-target-unit">LUFS</span>
+        </div>
+      </section>
 
-    <div class="meter-panel">
-      <div class="meter-box">
-        <span class="meter-label">INTEGRATED</span>
-        <span class="meter-value" id="integrated-value">--</span>
-        <span class="meter-unit">LUFS</span>
-      </div>
-      <div class="meter-box">
-        <span class="meter-label">LRA</span>
-        <span class="meter-value" id="lra-value">--</span>
-        <span class="meter-unit">LU</span>
-      </div>
+      <section class="deck-cell deck-gain" aria-labelledby="gain-heading">
+        <h2 id="gain-heading">補正ゲイン</h2>
+        <p class="gain-figure"><span class="gain-value" id="gain-value">--</span><span class="gain-unit">dB</span></p>
+        <p id="clip-warning" class="notice hidden" role="alert">
+          <svg class="icon" aria-hidden="true"><use href="#i-alert"/></svg>
+          <span>ピークが0 dBFSを超え、書き出すと歪みます。目標を下げると避けられます。</span>
+        </p>
+      </section>
+
+      <section class="deck-cell" aria-labelledby="listen-heading">
+        <h2 id="listen-heading">聴き比べ</h2>
+        <div class="listen">
+          <div class="segmented ab-switch" role="group" aria-labelledby="listen-heading">
+            <button type="button" id="ab-original" class="segment active" aria-pressed="true">原音</button>
+            <button type="button" id="ab-normalized" class="segment" aria-pressed="false">ノーマライズ後</button>
+          </div>
+          <button type="button" id="play-button" class="button button-ghost play-button">
+            <svg class="icon icon-play" aria-hidden="true"><use href="#i-play"/></svg>
+            <svg class="icon icon-stop" aria-hidden="true"><use href="#i-stop"/></svg>
+            <span id="play-label">再生</span>
+          </button>
+        </div>
+      </section>
     </div>
 
-    <div class="target-panel">
-      <h2>ノーマライズ目標</h2>
-      <div id="target-list" class="target-list"></div>
-      <div id="custom-target-row" class="custom-target-row hidden">
-        <input type="range" id="custom-target-range" min="-36" max="-6" step="0.1" />
-        <input type="number" id="custom-target-number" min="-36" max="-6" step="0.1" />
-        <span class="custom-target-unit">LUFS</span>
-      </div>
-    </div>
-
-    <div class="gain-panel">
-      <div class="gain-readout">
-        <span class="gain-label">GAIN</span>
-        <span class="gain-value" id="gain-value">--</span>
-        <span class="gain-unit">dB</span>
-      </div>
-      <p id="clip-warning" class="clip-warning hidden">
-        ⚠ このゲインを適用するとサンプルピークが0dBFSを超えクリップする可能性があります。
-      </p>
-    </div>
-
-    <div class="ab-panel">
-      <div class="ab-switch" role="group" aria-label="原音/ノーマライズ後の切替">
-        <button type="button" id="ab-original" class="ab-button active">ORIGINAL</button>
-        <button type="button" id="ab-normalized" class="ab-button">NORMALIZED</button>
-      </div>
-      <button type="button" id="play-button" class="play-button">▶ 再生</button>
-    </div>
-
-    <button type="button" id="export-button" class="export-button">⬇ ノーマライズ後をWAVで書き出す</button>
-
-    <button type="button" id="reset-button" class="reset-button">別のファイルを選ぶ</button>
+    <button type="button" id="export-button" class="export-bar">
+      <span class="export-main">
+        <svg class="icon" aria-hidden="true"><use href="#i-download"/></svg>
+        <span id="export-label">WAVで書き出す</span>
+      </span>
+      <span class="export-meta">ノーマライズ後 / 16bit</span>
+    </button>
   </section>
 </main>
 
 <footer class="app-footer">
-  <p>すべてローカル処理・オフライン対応PWA。<span id="install-hint"></span></p>
+  <p>計測は ITU-R BS.1770-4 と EBU Tech 3342 に準拠。書き出しは常に16bit WAVです。</p>
+  <p>オフラインでも使えます。<a href="https://github.com/bcno01/lufs_normalizer" target="_blank" rel="noopener">ソースコード</a></p>
 </footer>
 
 <script type="module" src="src/main.js"></script>
